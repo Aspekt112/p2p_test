@@ -1,0 +1,80 @@
+---
+- hosts: test
+  become: true
+  tasks:
+  - name: Install packages
+    apt:
+      name: [git, gcc, cmake, make, libc6-dev, jq]
+      update_cache: true
+      state: present
+
+  - name: download golang
+    unarchive:
+      src: https://golang.org/dl/go1.16.4.linux-amd64.tar.gz
+      dest: /usr/local
+      remote_src: yes
+
+  - name: add GOPATH env to profile
+    lineinfile:
+      path: "~/.profile"
+      line: '{{ item }}'
+      create: yes
+    with_items:
+      - "export GOPATH=/usr/local/go"
+      - "export PATH=$PATH:/usr/local/go/bin"
+
+  - name: clone repo
+    git:
+      repo: https://github.com/b-harvest/gravity-dex
+      dest: "~/gravity-dex"
+
+  - name: build the binary
+    shell: |
+      . ~/.profile && cd ~/gravity-dex && make install
+
+  - name: clear data
+    shell: |
+      . ~/.profile && rm $HOME/.gaia/config/addrbook.json $HOME/.gaia/config/genesis.json && gaiad unsafe-reset-all
+    tags: [never, clear]
+
+  - name: init data
+    shell: |
+      . ~/.profile && curl -s https://rpc.testnet.cosmos.network/genesis | jq -r .result.genesis > ~/.gaia/config/genesis.json && \
+      sed -i 's/seeds =.*/seeds = "30dce239c56cfd25cf0cebf5726c7c8be1e46f66@p2p.testnet.cosmos.network:31819,754a5f864adc5a60b287d4aed4f0ab11d8b056c8@p2p.testnet.cosmos.network:31654"/g' ~/.gaia/config/config.toml
+    tags: [init]
+
+  - name: copy service file
+    copy:
+      src: ./files/cosmos-testnet.service
+      dest: /etc/systemd/system/cosmos-testnet.service
+      owner: root
+      group: root
+      mode: '0644'
+      force: yes
+
+  - name: create log dir
+    file:
+      path: /var/log/cosmos-testnet
+      state: directory
+      owner: syslog
+      group: syslog
+      mode: '0755'
+
+  - name: copy rsyslog conf
+    copy:
+      src: ./files/cosmos-testnet-rsyslog.conf
+      dest: /etc/rsyslog.d/cosmos-testnet-rsyslog.conf
+      force: yes
+
+  - name: restart rsyslog service
+    systemd:
+      state: restarted
+      daemon_reload: yes
+      name: rsyslog
+
+  - name: ensure service cosmos-testnet restarted and enabled
+    systemd:
+      state: restarted
+      enabled: yes
+      daemon_reload: yes
+      name: cosmos-testnet

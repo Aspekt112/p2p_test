@@ -1,0 +1,238 @@
+---
+- hosts: test
+  become: true
+  tasks:
+  # - name: download lyns
+  #   unarchive:
+  #     src: https://downloads.cisofy.com/lynis/lynis-3.0.4.tar.gz
+  #     dest: "~"
+  #     remote_src: yes
+  #
+  # - name: move lynis binary to /usr/bin
+  #   copy: remote_src=true src=~/lynis/lynis dest=/usr/bin/lynis mode=a+x force=true
+
+  - name: install apt-transport-https
+    apt:
+      name: [apt-transport-https]
+      update_cache: true
+      state: present
+
+  - name: add key for cisofy repo
+    apt_key:
+      keyserver: keyserver.ubuntu.com
+      id: C80E383C3DE9F082E01391A0366C67DE91CA5D5F
+
+
+  - name: add cisofy data repository
+    apt_repository:
+      repo: deb [arch=amd64] https://packages.cisofy.com/community/lynis/deb/ xenial main
+      state: present
+
+  - name: install lynis
+    package:
+      name: [lynis]
+      update_cache: true
+      state: present
+
+  - name: Make sure we have a 'wheel' group
+    group:
+      name: wheel
+      state: present
+
+  - name: Allow 'wheel' group to have passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%wheel'
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+
+# - name: Add anurmatov user
+#   user:
+#     name: anurmatov
+#     comment: Artem Nurmatov
+#     group: wheel
+
+  - name: Add sudoers users to wheel group
+    user:
+      name=anurmatov
+      groups=wheel
+      append=yes
+      state=present
+      createhome=yes
+      shell=/bin/bash
+
+  - name: Set up authorized keys for the deployer user
+    authorized_key: user=anurmatov key="{{item}}"
+    with_file:
+      - ./files/p2p.pub
+
+  - name: Set correct mod on user home dir
+    file:
+      path: /home/anurmatov
+      owner: anurmatov
+      group: anurmatov
+      mode: '0750'
+
+  - name: AUTH-9328 - Default umask in /etc/login.defs could be more strict like 027
+    lineinfile:
+      path: /etc/login.defs
+      regex: "^UMASK\\s+022"
+      line: UMASK 027
+
+  - name: PKGS-7346 - Purge old/removed packages
+    shell: "sudo apt-get purge $(dpkg -l | grep '^rc' | awk '{print $2}')"
+
+  - name: PKGS-7370 - Install debsums utility for the verification of packages with known good database.
+    apt:
+      name: [debsums, apt-show-versions]
+      update_cache: true
+      state: present
+
+  - name: FINT-4350 - Install a file integrity tool to monitor changes to critical and sensitive files
+    apt:
+      name: [aide]
+      update_cache: true
+      state: present
+
+  - name: HRDN-7230 - Harden the system by installing at least one malware scanner, to perform periodic file system scans
+    apt:
+      name: [rkhunter, chkrootkit]
+      update_cache: true
+      state: present
+
+  - name: AUTH-9262 - Install a PAM module for password strength testing like pam_cracklib or pam_passwdqc
+    apt:
+      name: [libpam-cracklib]
+      update_cache: true
+      state: present
+
+  - name: PKGS-7392 - Update your system with apt-get update, apt-get upgrade, apt-get dist-upgrade and/or unattended-upgrades
+    apt: upgrade=dist force_apt_get=yes
+
+  - name: SSH-7408 - AllowTcpForwarding no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?AllowTcpForwarding
+      line: AllowTcpForwarding no
+
+  - name: SSH-7408 - ClientAliveCountMax to 2
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?ClientAliveCountMax
+      line: ClientAliveCountMax 2
+
+  - name: SSH-7408 - Compression no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?Compression
+      line: Compression no
+
+  - name: SSH-7408 - LogLevel VERBOSE
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?LogLevel
+      line: LogLevel VERBOSE
+
+  - name: SSH-7408 - MaxAuthTries 3
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?MaxAuthTries
+      line: MaxAuthTries 3
+
+  - name: SSH-7408 - MaxSessions 2
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?MaxSessions
+      line: MaxSessions 2
+
+  - name: SSH-7408 - TCPKeepAlive no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?TCPKeepAlive
+      line: TCPKeepAlive no
+
+  - name: SSH-7408 - X11Forwarding no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?X11Forwarding
+      line: X11Forwarding no
+
+  - name: SSH-7408 - AllowAgentForwarding no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?AllowAgentForwarding
+      line: AllowAgentForwarding no
+
+  - name: SSH-7408 - Port to 2222
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?Port
+      line: Port 2222
+
+  - name: SSH-7408 - PasswordAuthentication no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?PasswordAuthentication
+      line: PasswordAuthentication no
+
+  - name: SSH-7408 - PermitRootLogin no
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regex: ^(# *)?PermitRootLogin
+      line: PermitRootLogin no
+
+  - name: BANN-7126 - Add a legal banner to /etc/issue, to warn unauthorized users
+    lineinfile:
+      path: /etc/issue
+      line: System is monitored and your privacy might be limited, if required by legal requirements or law
+
+  - name: BANN-7126 - Add a legal banner to /etc/issue.net, to warn unauthorized users
+    lineinfile:
+      path: /etc/issue.net
+      line: System is monitored and your privacy might be limited, if required by legal requirements or law
+
+  - name: NETW-3200,USB-1000 - copy disables conf to /etc/modprobe.d
+    copy:
+      src: ./files/ansible-hardering-disables.conf
+      dest: /etc/modprobe.d/ansible-hardering-disables.conf
+      force: yes
+
+  - name: HRDN-7222 - Harden compilers like restricting access to root user only
+    file:
+      path: "{{ item }}"
+      mode: 'o-rx'
+    with_items:
+      - "/usr/bin/as"
+      - "/usr/bin/cc"
+      - "/usr/bin/gcc"
+
+  - name: AUTH-9286 - set minimum password age
+    lineinfile:
+      path: /etc/login.defs
+      regex: ^(# *)?PASS_MIN_DAYS
+      line: PASS_MIN_DAYS 2
+
+  - name: AUTH-9286 - set maximum password age
+    lineinfile:
+      path: /etc/login.defs
+      regex: ^(# *)?PASS_MAX_DAYS
+      line: PASS_MAX_DAYS 60
+
+  - name: AUTH-9230 - Configure password hashing rounds in /etc/login.defs (SHA_CRYPT_MAX_ROUNDS=5000)
+    lineinfile:
+      path: /etc/login.defs
+      regex: ^(# *)?SHA_CRYPT_MAX_ROUNDS
+      line: SHA_CRYPT_MAX_ROUNDS 5000
+
+  - name: AUTH-9230 - Configure password hashing rounds in /etc/login.defs (SHA_CRYPT_MIN_ROUNDS=5000)
+    lineinfile:
+      path: /etc/login.defs
+      regex: ^(# *)?SHA_CRYPT_MIN_ROUNDS
+      line: SHA_CRYPT_MIN_ROUNDS 5000
+
+  - name: AUTH-9230 - Configure password hashing rounds in /etc/login.defs (SHA_CRYPT_MIN_ROUNDS=5000)
+    lineinfile:
+      path: /etc/security/limits.conf
+      regex: ^(# *)?root\\s+hard\\s+core
+      line: "* hard core 0"

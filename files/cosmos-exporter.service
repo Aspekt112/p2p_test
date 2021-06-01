@@ -1,0 +1,17 @@
+[Unit]
+Description=Cosmos metrics exporter service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/go/bin/cosmos-exporter
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=cosmos-exporter
+
+[Install]
+WantedBy=multi-user.target

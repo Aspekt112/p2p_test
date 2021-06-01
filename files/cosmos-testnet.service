@@ -1,0 +1,17 @@
+[Unit]
+Description=Cosmos Testnet service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/go/bin/gaiad start
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=cosmos-testnet
+
+[Install]
+WantedBy=multi-user.target

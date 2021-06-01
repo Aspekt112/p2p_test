@@ -1,0 +1,69 @@
+---
+- hosts: test
+  become: true
+  tasks:
+  - name: Install packages
+    apt:
+      name: [git, gcc, cmake, make, libc6-dev, jq]
+      update_cache: true
+      state: present
+
+  - name: download golang
+    unarchive:
+      src: https://golang.org/dl/go1.16.4.linux-amd64.tar.gz
+      dest: /usr/local
+      remote_src: yes
+
+  - name: add GOPATH env to profile
+    lineinfile:
+      path: "~/.profile"
+      line: '{{ item }}'
+      create: yes
+    with_items:
+      - "export GOPATH=/usr/local/go"
+      - "export PATH=$PATH:/usr/local/go/bin"
+
+  - name: clone repo
+    git:
+      repo: https://github.com/Aspekt112/p2p_test
+      dest: "~/p2p_test"
+
+  - name: build the binary
+    shell: |
+      . ~/.profile && cd ~/p2p_test/exporter && go mod download && go build -o /usr/local/go/bin/cosmos-exporter
+
+  - name: copy service file
+    copy:
+      src: ./files/cosmos-exporter.service
+      dest: /etc/systemd/system/cosmos-exporter.service
+      owner: root
+      group: root
+      mode: '0644'
+      force: yes
+
+  - name: create log dir
+    file:
+      path: /var/log/cosmos-exporter
+      state: directory
+      owner: syslog
+      group: syslog
+      mode: '0755'
+
+  - name: copy rsyslog conf
+    copy:
+      src: ./files/cosmos-exporter-rsyslog.conf
+      dest: /etc/rsyslog.d/cosmos-exporter-rsyslog.conf
+      force: yes
+
+  - name: restart rsyslog service
+    systemd:
+      state: restarted
+      daemon_reload: yes
+      name: rsyslog
+
+  - name: ensure service cosmos-exporter restarted and enabled
+    systemd:
+      state: restarted
+      enabled: yes
+      daemon_reload: yes
+      name: cosmos-exporter
