@@ -19,7 +19,7 @@ const statusPage = "/status"
 const netInfoPage = "/net_info"
 
 var (
-  listenAddress = flag.String("listen-address", ":8080", "Address to listen on for telemetry")
+  listenAddress = flag.String("listen-address", "127.0.0.1:8080", "Address to listen on for telemetry")
   metricsPath = flag.String("metrics-path", "/metrics", "Path under which to expose metrics")
 
   tr = &http.Transport{
