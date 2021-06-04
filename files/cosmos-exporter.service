@@ -1,17 +1,58 @@
 [Unit]
 Description=Cosmos metrics exporter service
+After=syslog.target
 After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=cosmos-exporter
+Group=cosmos-exporter
 ExecStart=/usr/local/go/bin/cosmos-exporter
 Restart=on-failure
 RestartSec=10
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=cosmos-exporter
+
+# Harden service security
+PrivateUsers=true
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET6 AF_INET
+RestrictRealtime=yes
+ProtectSystem=strict
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+PrivateDevices=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+IPAddressAllow=192.168.1.0/24
+IPAddressAllow=127.0.0.0/8
+IPAddressDeny=0.0.0.0/0
+DevicePolicy=closed
+ConditionSecurity=uefi-secureboot selinux
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RemoveIPC=yes
+UMask=077
+
+ReadOnlyPaths=/
+ReadWritePaths=/var /run
+InaccessiblePaths=-/lost+found
+NoExecPaths=/
+ExecPaths=/usr/local/go/bin/cosmos-exporter /usr/lib /usr/lib64
+
 
 [Install]
 WantedBy=multi-user.target

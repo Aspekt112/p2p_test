@@ -1,2 +1,2 @@
 [test]
-p2p_cosmos_test ansible_host=95.216.195.134 ansible_port=2222 ansible_user=anurmatov ansible_ssh_private_key_file=/Users/aspekt112/.ssh/p2p
+p2p_cosmos_test ansible_host=95.216.195.134 ansible_port=2222 ansible_user=anurmatov ansible_ssh_private_key_file=~/.ssh/p2p

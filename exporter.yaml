@@ -32,12 +32,31 @@
     shell: |
       . ~/.profile && cd ~/p2p_test/exporter && go mod download && go build -o /usr/local/go/bin/cosmos-exporter
 
+  - name: add group "cosmos-exporter"
+    ansible.builtin.group:
+      name: cosmos-exporter
+      state: present
+
+  - name: add cosmos-exporter user
+    user:
+      name: cosmos-exporter
+      group: cosmos-exporter
+      shell: /sbin/nologin
+      comment: "User for Prometheus exporter"
+      state: present
+
+  - name: change cosmos-exporter binary ownership
+    file:
+      path: /usr/local/go/bin/cosmos-exporter
+      owner: cosmos-exporter
+      group: cosmos-exporter
+
   - name: copy service file
     copy:
       src: ./files/cosmos-exporter.service
       dest: /etc/systemd/system/cosmos-exporter.service
-      owner: root
-      group: root
+      owner: cosmos-exporter
+      group: cosmos-exporter
       mode: '0644'
       force: yes
 
