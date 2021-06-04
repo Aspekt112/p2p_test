@@ -26,29 +26,59 @@
   - name: clone repo
     git:
       repo: https://github.com/b-harvest/gravity-dex
-      dest: "~/gravity-dex"
+      dest: "/var/gravity-dex"
 
   - name: build the binary
     shell: |
-      . ~/.profile && cd ~/gravity-dex && make install
+      . ~/.profile && cd /var/gravity-dex && make install
+
+  - name: add group "cosmos-testnet"
+    ansible.builtin.group:
+      name: cosmos-testnet
+      state: present
+
+  - name: add cosmos-testnet user
+    user:
+      name: cosmos-testnet
+      group: cosmos-testnet
+      shell: /sbin/nologin
+      comment: "User for Cosmos testnet"
+      state: present
+
+  - name: change cosmos testnet binary ownership
+    file:
+      path: /usr/local/go/bin/gaiad
+      owner: cosmos-testnet
+      group: cosmos-testnet
 
   - name: clear data
     shell: |
-      . ~/.profile && rm $HOME/.gaia/config/addrbook.json $HOME/.gaia/config/genesis.json && gaiad unsafe-reset-all
+      . ~/.profile&& gaiad unsafe-reset-all --home /var/lib/gaia/ && rm -rf /var/lib/gaia/
     tags: [never, clear]
+
+
+  # gaiad init aspekt112 --chain-id=gaia-13007 --home /var/lib/gaia/ && gaiad keys add aspekt113 --home /var/lib/gaia/ && gaiad add-genesis-account $(gaiad keys show aspekt112 -a --home /var/lib/gaia/) 50000000000umuon --home /var/lib/gaia/
 
   - name: init data
     shell: |
-      . ~/.profile && curl -s https://rpc.testnet.cosmos.network/genesis | jq -r .result.genesis > ~/.gaia/config/genesis.json && \
-      sed -i 's/seeds =.*/seeds = "30dce239c56cfd25cf0cebf5726c7c8be1e46f66@p2p.testnet.cosmos.network:31819,754a5f864adc5a60b287d4aed4f0ab11d8b056c8@p2p.testnet.cosmos.network:31654"/g' ~/.gaia/config/config.toml
+      . ~/.profile && curl -s https://rpc.testnet.cosmos.network/genesis | jq -r .result.genesis > /var/lib/gaia/config/genesis.json && \
+      sed -i 's/seeds =.*/seeds = "30dce239c56cfd25cf0cebf5726c7c8be1e46f66@p2p.testnet.cosmos.network:31819,754a5f864adc5a60b287d4aed4f0ab11d8b056c8@p2p.testnet.cosmos.network:31654"/g' /var/lib/gaia/config/config.toml
     tags: [init]
+
+  - name: change cosmos testnet data ownership
+    file:
+      path: /var/lib/gaia/
+      owner: cosmos-testnet
+      group: cosmos-testnet
+      recurse: yes
+      state: directory
 
   - name: copy service file
     copy:
       src: ./files/cosmos-testnet.service
       dest: /etc/systemd/system/cosmos-testnet.service
-      owner: root
-      group: root
+      owner: cosmos-testnet
+      group: cosmos-testnet
       mode: '0644'
       force: yes
 

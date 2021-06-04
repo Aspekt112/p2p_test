@@ -1,17 +1,55 @@
 [Unit]
 Description=Cosmos Testnet service
+After=syslog.target
 After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
-ExecStart=/usr/local/go/bin/gaiad start
+User=cosmos-testnet
+Group=cosmos-testnet
+ExecStart=/usr/local/go/bin/gaiad start --home /var/lib/gaia
 Restart=on-failure
 RestartSec=10
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=cosmos-testnet
+
+# Harden service security
+PrivateUsers=true
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET6 AF_INET
+RestrictRealtime=yes
+ProtectSystem=strict
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+PrivateDevices=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+DevicePolicy=closed
+ConditionSecurity=uefi-secureboot selinux
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RemoveIPC=yes
+UMask=077
+
+ReadOnlyPaths=/
+ReadWritePaths=/var /run
+InaccessiblePaths=-/lost+found
+NoExecPaths=/
+ExecPaths=/usr/local/go/bin/gaiad /usr/lib /usr/lib64
+
 
 [Install]
 WantedBy=multi-user.target
